@@ -1,0 +1,40 @@
+{
+    "apps": [
+        {
+            "name": "region",
+            "script": "dist/app.js",
+            "exec_mode": "fork",
+            "instances": 1,
+            "max_memory_restart": "1000M",
+            "min_uptime": "30s",
+            "max_restarts": "5",
+            "env": {
+                "NODE_ENV": "pro"
+            }
+        },
+        {
+            "name": "region-dev",
+            "script": "dist/app.js",
+            "exec_mode": "fork",
+            "instances": 1,
+            "max_memory_restart": "500M",
+            "min_uptime": "30s",
+            "max_restarts": "5",
+            "env": {
+                "NODE_ENV": "dev"
+            }
+        },
+        {
+            "name": "region-test",
+            "script": "dist/app.js",
+            "exec_mode": "fork",
+            "instances": 1,
+            "max_memory_restart": "500M",
+            "min_uptime": "30s",
+            "max_restarts": "5",
+            "env": {
+                "NODE_ENV": "test"
+            }
+        }
+    ]
+}
