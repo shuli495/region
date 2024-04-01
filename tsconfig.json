@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+        "allowJs": true,
+        "checkJs": true,
+        "sourceMap": true,
+        "incremental": true,
+        "noImplicitAny": true,
+        "removeComments": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "skipLibCheck": true,
+        "moduleResolution": "node",
+        "module": "commonjs",
+        "target": "es2022",
+        "outDir": "dist",
+        "baseUrl": ".",
+        "resolveJsonModule": true,
+        "esModuleInterop": true
+    },
+    "include": ["app/**/*.ts", "app.ts"],
+    "exclude": ["node_modules", "dist"]
+}
