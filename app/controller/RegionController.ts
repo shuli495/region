@@ -26,6 +26,14 @@ class RegionController extends BaseController(RegionService) {
 
         return super.result(ctx, result);
     }
+
+    /** 搜索行政区，返回匹配的region_id */
+    @Get('/search')
+    async search(ctx: Context) {
+        const result = await RegionService.search(ctx.query as any);
+
+        return super.result(ctx, result);
+    }
 }
 
 export default RegionController;

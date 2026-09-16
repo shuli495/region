@@ -23,9 +23,7 @@ const config_default: ConfigInterface = {
     mysql_port: mysqlPort,
     mysql_log: false,
 
-    version_check_corn: '0 0 0 * * *',
-    version_check_enabled: process.env.REGION_VERSION_CHECK_ENABLED === 'true',
-    version_auto_update: process.env.REGION_VERSION_AUTO_UPDATE === 'true',
+    version_check_enabled: process.env.REGION_VERSION_CHECK_ENABLED !== 'false',
     version_admin_token: versionAdminToken,
 };
 

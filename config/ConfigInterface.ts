@@ -21,14 +21,8 @@ export interface ConfigInterface {
     mysql_port?: number;
     mysql_log?: any;
 
-    // 版本检查定时器
-    version_check_corn?: string;
     // 是否启用版本检查任务
     version_check_enabled?: boolean;
-    // 是否自动更新行政区划数据
-    version_auto_update?: boolean;
     // 版本管理接口令牌
     version_admin_token?: string;
-    // 重启命令
-    restart_command?: string;
 }

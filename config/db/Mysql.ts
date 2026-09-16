@@ -40,6 +40,8 @@ class Mysql extends DBAbstract<Pool> {
             queueLimit: 0,
             enableKeepAlive: true,
             keepAliveInitialDelay: 0,
+            supportBigNumbers: true,
+            bigNumberStrings: true,
         });
 
         return pool.promise();

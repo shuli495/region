@@ -10,8 +10,11 @@
         "dev": "NODE_ENV=dev node dist/app.js",
         "test": "NODE_ENV=test node dist/app.js",
         "pro": "NODE_ENV=pro node dist/app.js",
-        "test:security": "tsc && node --test test/security.test.js",
-
+        "test:security": "tsc && node --test --test-concurrency=1 test/*.test.js",
+        "data:build": "node scripts/build-region-data.js",
+        "data:load": "node scripts/load-region-data.js",
+        "data:patch": "node scripts/apply-region-patches.js",
+        "data:sync": "node scripts/sync-mca.js",
         "pm2:dev": "yarn && yarn build && pm2 startOrGracefulReload pm2.json --only region-dev",
         "pm2:test": "yarn && yarn build && pm2 startOrGracefulReload pm2.json --only region-test",
         "pm2:pro": "yarn && yarn build && pm2 startOrGracefulReload pm2.json --only region"

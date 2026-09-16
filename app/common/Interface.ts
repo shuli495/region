@@ -9,45 +9,17 @@ export type VersionType =
     // 国外
     | 'other';
 
-// 行政区子等级类型（表中数据）
-export type SubLevelType =
-    // 大洲
-    | '110'
-    // 国家
-    | '210'
-    // 省
-    | '310'
-    // 自治区
-    | '320'
-    // 直辖市
-    | '410'
-    // 特别行政区
-    | '420'
-    // 地级市
-    | '510'
-    // 地区
-    | '520'
-    // 自治州
-    | '530'
-    // 盟
-    | '540'
-    // 区县
-    | '610'
-    // 乡镇、街道
-    | '710'
-    // 村委会、居委会
-    | '810';
-
 // 表列名
 type TableColumn =
     | 'id'
     | 'parent_id'
-    | 'parent_path'
+    | 'code'
     | 'level_type'
-    | 'next_level_type'
+    | 'depth'
+    | 'has_children'
     | 'name_cn'
     | 'name_en'
-    | 'name_other'
+    | 'name_local'
     | 'name_pinyin'
     | 'name_jianpin'
     | 'region_code'
@@ -63,21 +35,18 @@ type TableColumn =
 // 行政区列表查询参数
 export interface QueryParamInterface {
     parent_id?: number;
-
-    // 行政区等级类型，父表的next_level_type
-    level_type?: string;
-
-    sub_level_type?: SubLevelType;
-
-    // 查询关键词（name相关模糊查询）
-    keyword?: string;
-
-    // 分页参数
     size?: number;
-    current?: number;
+    after_id?: number;
 
     // 返回的列
-    columns: TableColumn[];
+    columns?: TableColumn[] | TableColumn;
+}
+
+export interface SearchParamInterface {
+    parent_id: number;
+    keyword: string;
+    size?: number;
+    after_id?: number;
 }
 
 export type VersionMapInterface = {

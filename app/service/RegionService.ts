@@ -1,161 +1,141 @@
 import { BaseService } from '@pighand/pighand-framework-koa';
 
 import Mysql from '../../config/db/Mysql';
-import { QueryParamInterface } from '../common/Interface';
+import { QueryParamInterface, SearchParamInterface } from '../common/Interface';
 
-/**
- * 行政区服务
- */
+const coreColumns = new Set([
+    'id',
+    'parent_id',
+    'code',
+    'level_type',
+    'depth',
+    'has_children',
+    'name_cn',
+    'name_en',
+    'name_local',
+    'name_pinyin',
+    'name_jianpin',
+]);
+
+const detailColumns = new Set([
+    'region_code',
+    'phone_code',
+    'zone',
+    'utc',
+    'lng',
+    'lat',
+    'capital',
+    'osm_id',
+    'geo_names_id',
+]);
+
+/** 行政区服务 */
 class RegionService extends BaseService() {
-    private readonly tableNames: Record<string, string> = {
-        '100': 'continent',
-        '200': 'country',
-        cn_300: 'cn_province',
-        cn_500: 'cn_city',
-        cn_600: 'cn_area',
-        cn_700: 'cn_street',
-        cn_800: 'cn_village',
-        ot_300: 'ot_province',
-        ot_500: 'ot_city',
-        ot_600: 'ot_area',
-        ot_700: 'ot_street',
-        ot_800: 'ot_village',
-    };
+    async query(queryParam: QueryParamInterface = {}) {
+        const parentId = this._optionalPositiveInteger(queryParam.parent_id);
+        const afterId = this._optionalPositiveInteger(queryParam.after_id) || 0;
+        const pageSize = this._pageSize(queryParam.size);
+        const requestedColumns = queryParam.columns
+            ? typeof queryParam.columns === 'string'
+                ? [queryParam.columns]
+                : queryParam.columns
+            : [];
 
-    private readonly tableColumns = new Set([
-        'id',
-        'parent_id',
-        'parent_path',
-        'level_type',
-        'next_level_type',
-        'name_cn',
-        'name_en',
-        'name_other',
-        'name_pinyin',
-        'name_jianpin',
-        'region_code',
-        'phone_code',
-        'zone',
-        'utc',
-        'lng',
-        'lat',
-        'capital',
-        'osm_id',
-        'geo_names_id',
-    ]);
-
-    /**
-     * 获取表名
-     * @param level_type 格式：大洲-100；国家-200；其他：国家代码_行政区等级类型，如：cn_300
-     * @returns
-     */
-    private _getTableName(level_type = '100') {
-        const tableName = this.tableNames[level_type];
-        if (!tableName) {
-            super.throw('行政区等级类型错误');
+        const selectColumns = new Set([
+            'id',
+            'code',
+            'level_type',
+            'has_children',
+            'name_cn',
+            'name_en',
+        ]);
+        let needsDetail = false;
+        for (const column of requestedColumns) {
+            if (!coreColumns.has(column) && !detailColumns.has(column)) {
+                super.throw('返回字段错误');
+            }
+            selectColumns.add(column);
+            needsDetail ||= detailColumns.has(column);
         }
 
-        return tableName;
+        const selectedSql = [...selectColumns]
+            .map((column) =>
+                detailColumns.has(column) ? `d.${column}` : `r.${column}`,
+            )
+            .join(', ');
+        const join = needsDetail
+            ? 'LEFT JOIN region_detail d ON d.region_id = r.id'
+            : '';
+        const whereValues: number[] = [];
+        const parentWhere =
+            parentId === undefined
+                ? 'r.parent_id IS NULL'
+                : (whereValues.push(parentId), 'r.parent_id = ?');
+        whereValues.push(afterId);
+
+        const sql = `SELECT ${selectedSql} FROM region r ${join} WHERE ${parentWhere} AND r.id > ? ORDER BY r.id LIMIT ${pageSize + 1}`;
+        const [rows]: any[] = await Mysql.client.execute(sql, whereValues);
+
+        return this._page(rows, pageSize, 'id');
     }
 
-    /**
-     * 列表查询
-     *
-     * @param queryParam 传size&&current为分页查询
-     */
-    async query(queryParam: QueryParamInterface) {
-        const { parent_id, level_type, keyword, size, current, columns } =
-            queryParam;
+    async search(queryParam: SearchParamInterface) {
+        const keyword = queryParam.keyword?.trim();
+        if (!keyword || keyword.length > 128) {
+            super.throw('搜索关键词错误');
+        }
 
-        const hasPageParam = size !== undefined || current !== undefined;
-        const pageSize = Number(size);
-        const currentPage = Number(current);
-        if (
-            hasPageParam &&
-            (!Number.isInteger(pageSize) ||
-                pageSize < 1 ||
-                pageSize > 1000 ||
-                !Number.isInteger(currentPage) ||
-                currentPage < 1)
-        ) {
+        const parentId = this._optionalPositiveInteger(queryParam.parent_id);
+        if (parentId === undefined) {
+            super.throw('搜索必须指定父节点');
+        }
+        const afterId = this._optionalPositiveInteger(queryParam.after_id) || 0;
+        const pageSize = this._pageSize(queryParam.size);
+        const values = [parentId, keyword, afterId];
+
+        const [rows]: any[] = await Mysql.client.execute(
+            `SELECT region_id FROM region_search WHERE parent_id = ? AND INSTR(search_text, ?) > 0 AND region_id > ? ORDER BY region_id LIMIT ${pageSize + 1}`,
+            values,
+        );
+
+        return this._page(rows, pageSize, 'region_id');
+    }
+
+    private _page(rows: any[], pageSize: number, idColumn: string) {
+        const hasMore = rows.length > pageSize;
+        const records = hasMore ? rows.slice(0, pageSize) : rows;
+
+        return {
+            records,
+            has_more: hasMore,
+            next_after_id: hasMore ? records.at(-1)[idColumn] : null,
+        };
+    }
+
+    private _pageSize(value?: number) {
+        if (value === undefined) {
+            return 200;
+        }
+
+        const size = Number(value);
+        if (!Number.isInteger(size) || size < 1 || size > 1000) {
             super.throw('分页参数错误');
         }
 
-        // 组长sql
-        // select
-        let selectColumns = ['id', 'next_level_type', 'name_cn', 'name_en'];
+        return size;
+    }
 
-        const extraColumns = columns
-            ? typeof columns === 'string'
-                ? [columns]
-                : columns
-            : [];
-        for (const column of extraColumns) {
-            if (!this.tableColumns.has(column)) {
-                super.throw('返回字段错误');
-            }
-
-            selectColumns.push(column);
-        }
-        selectColumns = [...new Set(selectColumns)];
-
-        // table
-        const tableName = this._getTableName(level_type);
-
-        // where
-        let where = 'WHERE 1=1';
-        const whereValues = [];
-        if (parent_id && level_type && level_type != '100') {
-            where += ` AND parent_id = ?`;
-            whereValues.push(parent_id);
+    private _optionalPositiveInteger(value?: number) {
+        if (value === undefined || value === null || value === ('' as any)) {
+            return undefined;
         }
 
-        if (keyword) {
-            where +=
-                ` AND (name_cn LIKE CONCAT('%', ?,  '%') ` +
-                `or name_en LIKE CONCAT('%', ?,  '%') ` +
-                `or name_other LIKE CONCAT('%', ?,  '%') ` +
-                `or name_pinyin LIKE CONCAT('%', ?,  '%') ` +
-                `or name_jianpin LIKE CONCAT('%', ?,  '%'))`;
-            whereValues.push(keyword);
-            whereValues.push(keyword);
-            whereValues.push(keyword);
-            whereValues.push(keyword);
-            whereValues.push(keyword);
+        const parsed = Number(value);
+        if (!Number.isInteger(parsed) || parsed < 1) {
+            super.throw('ID参数错误');
         }
 
-        // 分页
-        let pageSql = '';
-        let totalRows: any;
-        if (hasPageParam) {
-            // 分页查询total
-            const totalSql = `SELECT COUNT(*) as total FROM ${tableName} ${where}`;
-            [totalRows] = await Mysql.client.execute(totalSql, whereValues);
-
-            pageSql = 'LIMIT ? OFFSET ?';
-        }
-
-        // 数据
-        const dataSql = `SELECT ${selectColumns.join(
-            ', ',
-        )} FROM ${tableName} ${where} order by id ${pageSql}`;
-        const dataValues = hasPageParam
-            ? [...whereValues, pageSize, pageSize * (currentPage - 1)]
-            : whereValues;
-        const [dataRows] = await Mysql.client.execute(dataSql, dataValues);
-
-        if (hasPageParam) {
-            return {
-                page: {
-                    total: totalRows[0].total,
-                    size: pageSize,
-                    current: currentPage,
-                },
-                records: dataRows,
-            };
-        }
-
-        return dataRows;
+        return parsed;
     }
 }
 

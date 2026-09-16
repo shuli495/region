@@ -31,16 +31,16 @@ const { app } = PighandFramework({
 app.listen(config.port, async () => {
     await Promise.all([Promise.all([Mysql.connect()])]);
 
-    if (config.version_check_enabled) {
-        new CronJob(
-            config.version_check_corn,
-            function () {
-                VersionService.checkNewVersion().catch(console.error);
-            },
-            null,
-            true,
-        );
-
-        VersionService.checkNewVersion().catch(console.error);
+    if (Mysql.client) {
+        await VersionService.setup();
+        if (config.version_check_enabled) {
+            const run = () => {
+                void VersionService.checkNewVersion().catch(console.error);
+            };
+            // 每年1月10日02:00发布；小时检查负责失败重试及停机补跑。
+            new CronJob('0 0 2 10 1 *', run, null, true, 'Asia/Shanghai');
+            new CronJob('0 0 * * * *', run, null, true, 'Asia/Shanghai');
+            run();
+        }
     }
 });
