@@ -22,13 +22,31 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Create release from tag notes
+      - name: Create or update release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          gh release create "$RELEASE_TAG" \
-            --verify-tag \
-            --title "$RELEASE_TAG" \
-            --notes-from-tag
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Expected a version tag such as v2.0.0"
+            exit 1
+          fi
+          git show-ref --verify "refs/tags/$RELEASE_TAG"
+          notes_file=".github/release-notes/$RELEASE_TAG.md"
+          if [[ ! -f "$notes_file" ]]; then
+            notes_file="$RUNNER_TEMP/release-notes.md"
+            git for-each-ref "refs/tags/$RELEASE_TAG" --format='%(contents)' > "$notes_file"
+          fi
+          if ! grep -q '[^[:space:]]' "$notes_file"; then
+            echo "::error::Release notes are empty; provide a release notes file or annotated tag message"
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --notes-file "$notes_file"
+          else
+            gh release create "$RELEASE_TAG" \
+              --verify-tag \
+              --title "$RELEASE_TAG" \
+              --notes-file "$notes_file"
+          fi

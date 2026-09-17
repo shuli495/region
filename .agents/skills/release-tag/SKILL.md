@@ -5,12 +5,12 @@ description: Create and push a version tag for this repository, with mandatory u
 
 # Release Tag
 
-Publish releases from `main` using an annotated `vMAJOR.MINOR.PATCH` tag. The tag annotation is the GitHub Release body, so release notes are mandatory.
+Publish releases from `main` using an annotated `vMAJOR.MINOR.PATCH` tag. Release notes are mandatory. The workflow reads `.github/release-notes/v<version>.md` first, falling back to the tag annotation.
 
 ## Prepare
 
-1. Run `git fetch origin main --tags`, then inspect the current branch, worktree, upstream state, existing tags, and commits since the latest version tag.
-2. Check `git status --short`. If it has output, list the staged, unstaged, and untracked files, remind the user that there are uncommitted changes, and stop. Do not commit, discard, stash, or include them automatically.
+1. Check `git status --short`. If it has output, list the staged, unstaged, and untracked files, remind the user that there are uncommitted changes, and stop. Do not commit, discard, stash, or include them automatically.
+2. Run `git fetch origin main --tags`, then inspect the current branch, upstream state, existing tags, and commits since the latest version tag. If fetching fails, report the failure and stop rather than treating cached refs as current.
 3. Check `git rev-list --left-right --count origin/main...HEAD`:
    - If `HEAD` is ahead, list `git log --oneline origin/main..HEAD`, remind the user that commits have not been pushed, and stop.
    - If `HEAD` is behind or has diverged, report the state and stop.
@@ -40,7 +40,7 @@ npm test
 npm run build
 ```
 
-## Publish
+## Stage 1: Prepare Locally
 
 Immediately before making changes, show the exact version and complete release notes and get explicit user confirmation.
 
@@ -52,9 +52,24 @@ After confirmation:
    npm version <version> --no-git-tag-version
    ```
 
-2. Commit only the version files with message `chore: release v<version>` and push `main` to `origin`.
-3. Write the approved notes to a temporary file, create an annotated tag with `git tag -a v<version> -F <notes-file>`, then delete the temporary file.
-4. Push only that tag with `git push origin v<version>`. The `.github/workflows/release.yml` workflow creates the GitHub Release from the tag annotation.
-5. Report the pushed tag. If GitHub CLI is authenticated, optionally verify the workflow with `gh run list --workflow release.yml --limit 1`; do not retry or modify a failed release without inspecting the failure first.
+2. Save the complete approved notes to `.github/release-notes/v<version>.md`.
+3. Run the Verify commands after preparing these files. Check the final diff and stop on any failure before committing. Commit all release preparation files together (the version files and approved notes) with message `chore: release v<version>`; do not include unrelated files.
+4. Create an annotated tag on that commit with `git tag -a v<version> -F .github/release-notes/v<version>.md`. A tag created before the commit would exclude the release preparation changes. Verify the tag resolves to `HEAD` and `git for-each-ref refs/tags/v<version> --format='%(contents)'` contains the complete approved notes; stop if empty or different.
+5. Report the local commit and tag before starting any push. All local release work must be complete at this point. If the user requested local preparation only, stop here.
+
+## Stage 2: Push
+
+Run branch and tag pushes separately, only after Stage 1 succeeds:
+
+```bash
+git push origin main
+git push origin v<version>
+```
+
+Stop immediately if either push fails. Preserve the prepared commit, notes file, and tag; do not delete, recreate, amend, or move them. Report which push failed and provide the remaining commands so the user can push manually. Never push the tag when the branch push failed.
+
+For "continue release" after a failed push, inspect the existing release commit, notes, tag, worktree, and refreshed remote state. Resume only the pending pushes; do not repeat the version bump or create another release commit. The already-approved release commit awaiting push is expected in this recovery case, not a new unapproved change. Stop for unrelated changes or new commits. If both pushes were completed manually, verify the remote tag points to the prepared commit and report completion.
+
+The `.github/workflows/release.yml` workflow creates the GitHub Release with the approved notes. Report a successful tag push separately from confirmed Release creation. If GitHub CLI is authenticated, optionally verify the workflow with `gh run list --workflow release.yml --limit 1`; do not retry or modify a failed release without inspecting the failure first.
 
 Never overwrite, move, or delete an existing release tag unless the user explicitly requests that exact operation after the risk is explained.
