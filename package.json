@@ -1,6 +1,6 @@
 {
     "name": "region",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "description": "全球行政区划",
     "scripts": {
         "dev": "next dev -p 3099",
