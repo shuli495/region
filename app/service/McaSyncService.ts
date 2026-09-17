@@ -234,7 +234,7 @@ export class McaSyncService {
             const [[lock]]: any = await db.query(
                 "SELECT GET_LOCK('region-data-patch',0) AS acquired",
             );
-            if (lock.acquired !== 1) return;
+            if (Number(lock.acquired) !== 1) return;
             locked = true;
             const [[pending]]: any = await db.query(
                 "SELECT * FROM region_sync_job WHERE status <> 'completed' ORDER BY version LIMIT 1",
@@ -382,7 +382,7 @@ export class McaSyncService {
             const [[lock]]: any = await db.query(
                 "SELECT GET_LOCK('region-data-patch',0) AS acquired",
             );
-            if (lock.acquired !== 1) throw new Error('同步任务正在运行');
+            if (Number(lock.acquired) !== 1) throw new Error('同步任务正在运行');
             locked = true;
             await db.beginTransaction();
             const [[job]]: any = await db.execute(
@@ -497,7 +497,7 @@ export class McaSyncService {
             const [[lock]]: any = await db.query(
                 "SELECT GET_LOCK('region-data-patch',0) AS acquired",
             );
-            if (lock.acquired !== 1)
+            if (Number(lock.acquired) !== 1)
                 throw new Error('同步任务正在运行，请稍后重试');
             locked = true;
             await db.beginTransaction();

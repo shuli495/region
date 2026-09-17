@@ -1,5 +1,3 @@
-import { BaseService } from '@pighand/pighand-framework-koa';
-
 import Mysql from '../../config/db/Mysql';
 import { QueryParamInterface, SearchParamInterface } from '../common/Interface';
 
@@ -30,10 +28,14 @@ const detailColumns = new Set([
 ]);
 
 /** 行政区服务 */
-class RegionService extends BaseService() {
+class RegionService {
+    private fail(message: string): never {
+        throw new Error(message);
+    }
     async query(queryParam: QueryParamInterface = {}) {
         const parentId = this._optionalPositiveInteger(queryParam.parent_id);
-        const afterId = this._optionalPositiveInteger(queryParam.after_id) || 0;
+        const afterId =
+            this._optionalPositiveInteger(queryParam.after_id, true) || 0;
         const pageSize = this._pageSize(queryParam.size);
         const requestedColumns = queryParam.columns
             ? typeof queryParam.columns === 'string'
@@ -52,7 +54,7 @@ class RegionService extends BaseService() {
         let needsDetail = false;
         for (const column of requestedColumns) {
             if (!coreColumns.has(column) && !detailColumns.has(column)) {
-                super.throw('返回字段错误');
+                this.fail('返回字段错误');
             }
             selectColumns.add(column);
             needsDetail ||= detailColumns.has(column);
@@ -82,14 +84,15 @@ class RegionService extends BaseService() {
     async search(queryParam: SearchParamInterface) {
         const keyword = queryParam.keyword?.trim();
         if (!keyword || keyword.length > 128) {
-            super.throw('搜索关键词错误');
+            this.fail('搜索关键词错误');
         }
 
         const parentId = this._optionalPositiveInteger(queryParam.parent_id);
         if (parentId === undefined) {
-            super.throw('搜索必须指定父节点');
+            this.fail('搜索必须指定父节点');
         }
-        const afterId = this._optionalPositiveInteger(queryParam.after_id) || 0;
+        const afterId =
+            this._optionalPositiveInteger(queryParam.after_id, true) || 0;
         const pageSize = this._pageSize(queryParam.size);
         const values = [parentId, keyword, afterId];
 
@@ -119,20 +122,20 @@ class RegionService extends BaseService() {
 
         const size = Number(value);
         if (!Number.isInteger(size) || size < 1 || size > 1000) {
-            super.throw('分页参数错误');
+            this.fail('分页参数错误');
         }
 
         return size;
     }
 
-    private _optionalPositiveInteger(value?: number) {
+    private _optionalPositiveInteger(value?: number, allowZero = false) {
         if (value === undefined || value === null || value === ('' as any)) {
             return undefined;
         }
 
         const parsed = Number(value);
-        if (!Number.isInteger(parsed) || parsed < 1) {
-            super.throw('ID参数错误');
+        if (!Number.isSafeInteger(parsed) || parsed < (allowZero ? 0 : 1)) {
+            this.fail('ID参数错误');
         }
 
         return parsed;

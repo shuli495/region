@@ -61,6 +61,8 @@ test(
         const database = `code_policy_test_${process.pid}_${Date.now()}`;
         await admin.query(`CREATE DATABASE ${database}`);
         const pool = mysql.createPool({
+            supportBigNumbers: true,
+            bigNumberStrings: true,
             ...opts,
             database,
             connectionLimit: 3,

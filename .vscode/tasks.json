@@ -1,20 +1,7 @@
 {
-    // 有关 tasks.json 格式的文档，请参见
-    // https://go.microsoft.com/fwlink/?LinkId=733558
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "tsc",
-            "type": "typescript",
-            "tsconfig": "tsconfig.json",
-            "problemMatcher": ["$tsc"]
-        },
-        {
-            "label": "watch",
-            "type": "typescript",
-            "tsconfig": "tsconfig.json",
-            "option": "watch",
-            "problemMatcher": ["$tsc-watch"]
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "typecheck", "type": "shell", "command": "npm run typecheck", "problemMatcher": ["$tsc"] },
+    { "label": "build", "type": "shell", "command": "npm run build", "problemMatcher": ["$tsc"] }
+  ]
 }

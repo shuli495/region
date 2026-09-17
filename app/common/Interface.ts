@@ -1,14 +1,3 @@
-// 版本类型
-export type VersionType =
-    // 代码
-    | 'code'
-    // 基础数据（大洲、国家）
-    | 'base'
-    // 国内
-    | 'cn'
-    // 国外
-    | 'other';
-
 // 表列名
 type TableColumn =
     | 'id'
@@ -48,18 +37,3 @@ export interface SearchParamInterface {
     size?: number;
     after_id?: number;
 }
-
-export type VersionMapInterface = {
-    [key in VersionType]: {
-        // 库中当前版本号
-        nowVersion: number;
-
-        // 库中最新版本号
-        lastVersion: number;
-
-        // 最新版本号
-        newVersion: number;
-        // 当前版本到最新版本的更新sql
-        newVersionSql: string;
-    };
-};

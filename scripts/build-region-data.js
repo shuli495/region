@@ -169,87 +169,22 @@ async function readRows(inputDirectory, callback) {
     }
 }
 
-function loadPatches(patchDirectory) {
-    if (!fs.existsSync(patchDirectory))
-        return { transform: (row) => row, additions: [] };
-
-    const patchEntries = fs
-        .readdirSync(patchDirectory)
-        .filter((file) => file.endsWith('.json'))
-        .map((file) => ({
-            file,
-            patch: JSON.parse(
-                fs.readFileSync(path.join(patchDirectory, file), 'utf8'),
-            ),
-        }))
-        .sort((a, b) => Number(a.patch.version) - Number(b.patch.version));
-    const patches = patchEntries.map((entry) => entry.patch);
-    const prefixChanges = patches
-        .flatMap((patch) => patch.prefix_changes || [])
-        .sort((a, b) => b.from.length - a.from.length);
-    const updates = Object.assign(
-        {},
-        ...patches.map((patch) => patch.updates || {}),
-    );
-    const parentChanges = Object.assign(
-        {},
-        ...patches.map((patch) => patch.parent_changes || {}),
-    );
-    const removals = new Set(patches.flatMap((patch) => patch.removals || []));
-    const additions = patches.flatMap((patch) => patch.additions || []);
-
-    return {
-        additions,
-        files: patchEntries.map((entry) => entry.file),
-        transform(sourceRow) {
-            const row = { ...sourceRow };
-            const idChange = prefixChanges.find((change) =>
-                sourceRow.id.startsWith(change.from),
-            );
-            const parentChange = prefixChanges.find((change) =>
-                sourceRow.parent_id?.startsWith(change.from),
-            );
-            if (idChange) {
-                const exact = sourceRow.id === idChange.from;
-                row.id = idChange.to + sourceRow.id.slice(idChange.from.length);
-                if (exact && idChange.parent_code) {
-                    row.parent_id = idChange.parent_code;
-                }
-            }
-            if (parentChange && !(idChange && sourceRow.id === idChange.from)) {
-                row.parent_id =
-                    parentChange.to +
-                    sourceRow.parent_id.slice(parentChange.from.length);
-            }
-            if (removals.has(row.id)) return null;
-            Object.assign(row, updates[row.id] || {});
-            if (parentChanges[row.id]) row.parent_id = parentChanges[row.id];
-            return row;
-        },
-    };
-}
-
 function parseArguments(argv) {
     const options = {
         input: path.resolve('data/full'),
         output: path.resolve('tmp/region-data'),
-        patches: path.resolve('data/patches'),
         chunkMb: 45,
     };
     for (let index = 0; index < argv.length; index += 2) {
         const key = argv[index];
         const value = argv[index + 1];
-        if (
-            !value ||
-            !['--input', '--output', '--patches', '--chunk-mb'].includes(key)
-        ) {
+        if (!value || !['--input', '--output', '--chunk-mb'].includes(key)) {
             throw new Error(
-                '用法: node scripts/build-region-data.js [--input DIR] [--output DIR] [--patches DIR] [--chunk-mb 45]',
+                '用法: node scripts/build-region-data.js [--input DIR] [--output DIR] [--chunk-mb 45]',
             );
         }
         if (key === '--input') options.input = path.resolve(value);
         if (key === '--output') options.output = path.resolve(value);
-        if (key === '--patches') options.patches = path.resolve(value);
         if (key === '--chunk-mb') options.chunkMb = Number(value);
     }
     if (!Number.isFinite(options.chunkMb) || options.chunkMb < 1) {
@@ -270,17 +205,7 @@ async function build(options) {
     const codeToId = new Map();
     const parentCodes = new Set();
     let sourceRows = 0;
-    const patches = loadPatches(options.patches);
-
-    async function readPatchedRows(callback) {
-        await readRows(options.input, (sourceRow) => {
-            const row = patches.transform(sourceRow);
-            if (row) return callback(row);
-        });
-        for (const addition of patches.additions) await callback(addition);
-    }
-
-    await readPatchedRows((row) => {
+    await readRows(options.input, (row) => {
         sourceRows++;
         if (!codeToId.has(row.id)) codeToId.set(row.id, codeToId.size + 1);
         if (row.parent_id && row.parent_id !== row.id)
@@ -340,7 +265,7 @@ async function build(options) {
     );
     const emittedCodes = new Set();
 
-    await readPatchedRows(async (row) => {
+    await readRows(options.input, async (row) => {
         if (emittedCodes.has(row.id)) return;
         emittedCodes.add(row.id);
 
@@ -392,7 +317,7 @@ async function build(options) {
         source_rows: sourceRows,
         regions: codeToId.size,
         duplicates_removed: sourceRows - codeToId.size,
-        patch_files: patches.files,
+        format: 'region-base-v1',
         region: region.manifest(),
         region_detail: detail.manifest(),
         region_search: search.manifest(),
@@ -418,7 +343,6 @@ module.exports = {
     build,
     decodeValue,
     encodeTsv,
-    loadPatches,
     parseInsert,
     parseValues,
 };

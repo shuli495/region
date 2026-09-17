@@ -18,6 +18,8 @@ test(
         const database = `history_test_${process.pid}_${Date.now()}`;
         await admin.query(`CREATE DATABASE ${database}`);
         const pool = mysql.createPool({
+            supportBigNumbers: true,
+            bigNumberStrings: true,
             ...options,
             database,
             connectionLimit: 3,
@@ -156,7 +158,7 @@ test(
             const [[gone]] = await pool.query(
                 'SELECT COUNT(*) AS n FROM region WHERE id IN (4,5)',
             );
-            assert.equal(gone.n, 0);
+            assert.equal(Number(gone.n), 0);
             await service.replay(deletion.version, 'rollback');
             await service.edit({
                 action: 'update',

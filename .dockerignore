@@ -6,3 +6,6 @@ tmp
 .env
 .env.*
 !.env.example
+.next
+.env*
+.git

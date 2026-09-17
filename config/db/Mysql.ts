@@ -1,7 +1,6 @@
 import mysql2 from 'mysql2';
 import { Pool } from 'mysql2/promise';
 import config from '../config';
-import { DBAbstract, DBTypeEnum } from './DBAbstract';
 
 const {
     mysql_database,
@@ -11,7 +10,8 @@ const {
     mysql_port = 3306,
 } = config;
 
-class Mysql extends DBAbstract<Pool> {
+class Mysql {
+    client: Pool;
     constructor() {
         if (
             mysql_host &&
@@ -21,11 +21,24 @@ class Mysql extends DBAbstract<Pool> {
                 '配置 MINE_MYSQL_HOST 时，必须同时配置 MINE_MYSQL_USER、MINE_MYSQL_PASSWORD 和 MINE_MYSQL_DATABASE',
             );
         }
-
-        super(DBTypeEnum.MYSQL, !!mysql_host);
     }
 
-    async DBConnect() {
+    async connect() {
+        if (!mysql_host) {
+            console.warn('mysql - 未配置');
+            return this.client;
+        }
+        try {
+            this.client = await this.DBConnect();
+            console.info('mysql - 已连接');
+        } catch (e) {
+            console.error('mysql - 连接错误');
+            throw new Error(e);
+        }
+        return this.client;
+    }
+
+    private async DBConnect() {
         const pool = mysql2.createPool({
             host: mysql_host,
             port: mysql_port,

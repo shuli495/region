@@ -1,18 +1,17 @@
-FROM node:alpine
-
-RUN apk update && apk add bash tzdata \
-    && cp -r -f /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-RUN apk add g++ make python
-
-WORKDIR /usr/src/app
-
-COPY package*.json ./
-
-RUN yarn install --production
-
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1 REGION_STANDALONE=true
+RUN npm run build
 
-EXPOSE 3000
-
-ENTRYPOINT ["yarn", "run"]
-CMD ["pro"]
+FROM node:22-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production PORT=3099 HOSTNAME=0.0.0.0
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
+COPY --from=build --chown=node:node /app/data/patches ./data/patches
+USER node
+EXPOSE 3099
+CMD ["node", "server.js"]

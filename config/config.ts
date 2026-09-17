@@ -1,61 +1,13 @@
-import config_local from './config_local';
-import config_dev from './config_dev';
-import config_test from './config_test';
-import config_default from './config_default';
-import config_production from './config_production';
-import { ConfigInterface } from './ConfigInterface';
-
-let nodeEnvDev = 'dev';
-let nodeEnvTest = 'test';
-let nodeEnvPro = 'pro';
-
-/**
- * 配置文件处理
- */
-// 根据环境变量获取相应配置
-let envConfig: ConfigInterface = config_local;
-if (process.env.NODE_ENV === 'dev' || process.env.NODE_ENV === 'develop') {
-    envConfig = config_dev;
-    nodeEnvDev = process.env.NODE_ENV;
-} else if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'uat') {
-    envConfig = config_test;
-    nodeEnvTest = process.env.NODE_ENV;
-} else if (
-    process.env.NODE_ENV === 'pro' ||
-    process.env.NODE_ENV === 'prod' ||
-    process.env.NODE_ENV === 'production'
-) {
-    envConfig = config_production;
-    nodeEnvPro = process.env.NODE_ENV;
+// Next.js loads .env.local/.env before importing server modules.
+const mysqlPort = Number(process.env.MINE_MYSQL_PORT || 3306);
+if (!Number.isInteger(mysqlPort) || mysqlPort < 1 || mysqlPort > 65535) {
+    throw new Error('MINE_MYSQL_PORT 必须是 1-65535 之间的整数');
 }
 
-// 配置文件生效级别
-// 1级 - 环境变量
-// 2级 - NODE_ENV指定的配置文件
-// 3级 - 默认配置文件
-let config: ConfigInterface = {
-    env: process.env.NODE_ENV,
-    ...config_default,
-    ...envConfig,
-    local: {
-        ...config_default,
-        ...config_local,
-    },
-    dev: {
-        ...config_default,
-        ...config_dev,
-        envName: nodeEnvDev,
-    },
-    test: {
-        ...config_default,
-        ...config_test,
-        envName: nodeEnvTest,
-    },
-    pro: {
-        ...config_default,
-        ...config_production,
-        envName: nodeEnvPro,
-    },
+export default {
+    mysql_database: process.env.MINE_MYSQL_DATABASE || 'region',
+    mysql_username: process.env.MINE_MYSQL_USER,
+    mysql_password: process.env.MINE_MYSQL_PASSWORD,
+    mysql_host: process.env.MINE_MYSQL_HOST,
+    mysql_port: mysqlPort,
 };
-
-export default config;

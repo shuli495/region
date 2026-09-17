@@ -7,3 +7,7 @@ tmp
 .env
 .env.*
 !.env.example
+.next/
+*.tsbuildinfo
+next-env.d.ts
+.playwright-cli/

@@ -233,7 +233,7 @@ export class DataHistoryService {
             const [[r]]: any = await db.query(
                 "SELECT GET_LOCK('region-data-patch',0) AS acquired",
             );
-            if (r.acquired !== 1)
+            if (Number(r.acquired) !== 1)
                 throw new Error('其他更新正在运行，请稍后重试');
             lock = true;
             await db.beginTransaction();

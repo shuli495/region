@@ -101,6 +101,8 @@ test(
         });
         await admin.query(`CREATE DATABASE ${database}`);
         const pool = mysql.createPool({
+            supportBigNumbers: true,
+            bigNumberStrings: true,
             socketPath: process.env.MCA_TEST_SOCKET,
             user: 'root',
             database,
@@ -253,7 +255,7 @@ test(
             const [[removed]] = await pool.query(
                 'SELECT COUNT(*) AS n FROM region WHERE id IN (6,7)',
             );
-            assert.equal(removed.n, 0);
+            assert.equal(Number(removed.n), 0);
             const [[search]] = await pool.query(
                 'SELECT * FROM region_search WHERE region_id=2',
             );
@@ -266,7 +268,7 @@ test(
             const [[orphans]] = await pool.query(
                 'SELECT COUNT(*) AS n FROM region r LEFT JOIN region p ON p.id=r.parent_id WHERE r.parent_id IS NOT NULL AND p.id IS NULL',
             );
-            assert.equal(orphans.n, 0);
+            assert.equal(Number(orphans.n), 0);
             await service.run(date);
             assert.equal(calls.length, before);
             // 与已有补丁执行器共用锁，避免并发写入。
@@ -354,53 +356,6 @@ test(
         }
     },
 );
-
-test('version endpoints require token and return 202 for asynchronous resume', async () => {
-    const Controller =
-        require('../dist/app/controller/VersionController').default;
-    const service = require('../dist/app/service/VersionService').default;
-    const config = require('../dist/config/config').default;
-    const controller = new Controller();
-    const previous = config.version_admin_token;
-    const oldRun = service.checkNewVersion;
-    let invoked = 0;
-    try {
-        config.version_admin_token = 'a'.repeat(32);
-        const bad = { get: () => 'Bearer wrong', response: {} };
-        await assert.rejects(controller.status(bad), /无权限/);
-        await assert.rejects(controller.resume(bad), /无权限/);
-        await assert.rejects(controller.preferRemote(bad), /无权限/);
-        await assert.rejects(controller.conflicts(bad), /无权限/);
-        await assert.rejects(controller.resolveConflicts(bad), /无权限/);
-        for (const method of [
-            'releases',
-            'changes',
-            'createRelease',
-            'attachRelease',
-            'publishRelease',
-            'rollbackRelease',
-            'applyRelease',
-            'editData',
-        ])
-            await assert.rejects(controller[method](bad), /无权限/);
-        service.checkNewVersion = async () => {
-            invoked++;
-        };
-        const ctx = {
-            get: () => `Bearer ${config.version_admin_token}`,
-            response: {},
-        };
-        const result = await controller.resume(ctx);
-        assert.equal(ctx.status, 202);
-        assert.equal(result.code, 202);
-        assert.equal(invoked, 1);
-        config.version_admin_token = undefined;
-        await assert.rejects(controller.status(ctx), /未启用/);
-    } finally {
-        config.version_admin_token = previous;
-        service.checkNewVersion = oldRun;
-    }
-});
 
 test('Longgang direct village administration is a valid county leaf', () => {
     const data = node('330383000000', '龙港市', 3, '县级市');
